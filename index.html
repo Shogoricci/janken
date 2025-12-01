@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>じゃんけん（連勝メーター付き）</title>
+    <!-- jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #0f1b31;
+            --panel-2: #12203a;
+            --text: #e8f0ff;
+            --muted: #a9b6d3;
+            --accent: #5da0ff;
+            --win: #22c55e;
+            --lose: #ef4444;
+            --tie: #eab308;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+            background: radial-gradient(1200px 800px at 10% -20%, #1a2a4b 0%, #0b1220 60%) fixed;
+            color: var(--text);
+            min-height: 100dvh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .app {
+            width: min(720px, 92vw);
+            background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        header h1 {
+            font-size: clamp(18px, 3.4vw, 24px);
+            margin: 0;
+            letter-spacing: .02em;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 12px 0 6px;
+        }
+
+        button.choice {
+            appearance: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            border-radius: 16px;
+            padding: 18px 8px;
+            font-size: clamp(28px, 6.5vw, 40px);
+            cursor: pointer;
+            transition: transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+            user-select: none;
+        }
+
+        button.choice:active {
+            transform: translateY(1px) scale(0.99);
+        }
+
+        button.choice:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        button .label {
+            display: block;
+            font-size: 12px;
+            margin-top: 6px;
+            color: var(--muted);
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: 1fr 120px 1fr;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0 6px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+        }
+
+        .side {
+            text-align: center;
+        }
+
+        .who {
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 4px;
+            letter-spacing: .02em;
+        }
+
+        .hand {
+            font-size: clamp(36px, 8vw, 56px);
+            line-height: 1.1;
+            min-height: 1.1em;
+        }
+
+        .vs {
+            text-align: center;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: .1em;
+        }
+
+        .result {
+            margin-top: 8px;
+            text-align: center;
+            font-size: clamp(14px, 3.6vw, 18px);
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .result.win {
+            border-color: rgba(34, 197, 94, .35);
+            background: rgba(34, 197, 94, .08);
+        }
+
+        .result.lose {
+            border-color: rgba(239, 68, 68, .35);
+            background: rgba(239, 68, 68, .08);
+        }
+
+        .result.tie {
+            border-color: rgba(234, 179, 8, .35);
+            background: rgba(234, 179, 8, .08);
+        }
+
+        .meter-wrap {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(93, 160, 255, 0.06);
+            border: 1px solid rgba(93, 160, 255, 0.25);
+        }
+
+        .meter-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+        }
+
+        .meter-head .title {
+            font-weight: 700;
+            letter-spacing: .03em;
+        }
+
+        .meter-head .count {
+            color: var(--accent);
+            font-weight: 800;
+        }
+
+        .bar {
+            width: 100%;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .bar>.fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3b82f6, #22c55e 60%, #16a34a);
+            transition: width .25s ease;
+        }
+
+        /* 小さなアニメ */
+        .pop {
+            animation: pop .28s ease;
+        }
+
+        .shake {
+            animation: shake .4s ease;
+        }
+
+        .pulse {
+            animation: pulse .6s ease;
+        }
+
+        @keyframes pop {
+            0% {
+                transform: scale(0.85)
+            }
+
+            100% {
+                transform: scale(1)
+            }
+        }
+
+        @keyframes shake {
+
+            10%,
+            90% {
+                transform: translateX(-1px)
+            }
+
+            20%,
+            80% {
+                transform: translateX(2px)
+            }
+
+            30%,
+            50%,
+            70% {
+                transform: translateX(-4px)
+            }
+
+            40%,
+            60% {
+                transform: translateX(4px)
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, .6)
+            }
+
+            100% {
+                box-shadow: 0 0 0 14px rgba(34, 197, 94, 0)
+            }
+        }
+
+        .sr-only {
+            position: absolute !important;
+            height: 1px;
+            width: 1px;
+            overflow: hidden;
+            clip: rect(1px, 1px, 1px, 1px);
+            white-space: nowrap;
+            clip-path: inset(50%);
+        }
+
+        .footer {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .subbtn {
+            font-size: 12px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .subbtn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="app" role="application" aria-label="じゃんけんアプリ">
+        <header>
+            <h1>じゃんけん ✊✌️✋（連勝メーター）</h1>
+            <div class="hint">上のボタンから手を選んでください</div>
+        </header>
+
+        <!-- 選択ボタン -->
+        <section class="buttons" aria-label="あなたの手を選ぶ">
+            <button class="choice" data-hand="rock" aria-label="グー">
+                ✊<span class="label">グー</span>
+            </button>
+            <button class="choice" data-hand="scissors" aria-label="チョキ">
+                ✌️<span class="label">チョキ</span>
+            </button>
+            <button class="choice" data-hand="paper" aria-label="パー">
+                ✋<span class="label">パー</span>
+            </button>
+        </section>
+
+        <!-- 表示盤 -->
+        <section class="board" aria-live="polite">
+            <div class="side">
+                <div class="who">あなた</div>
+                <div id="youHand" class="hand">—</div>
+            </div>
+            <div class="vs">VS</div>
+            <div class="side">
+                <div class="who">コンピューター</div>
+                <div id="cpuHand" class="hand">—</div>
+            </div>
+        </section>
+
+        <!-- 結果 -->
+        <div id="result" class="result">結果：—</div>
+
+        <!-- メーター -->
+        <section class="meter-wrap" aria-label="連勝メーター">
+            <div class="meter-head">
+                <div class="title">現在の連勝</div>
+                <div class="count"><span id="streak">0</span> 連勝</div>
+            </div>
+            <div class="bar" aria-hidden="true">
+                <div id="fill" class="fill"></div>
+            </div>
+            <div class="hint" style="margin-top:6px;">勝つと +1、負けると 0 にリセット（あいこは変化なし）</div>
+        </section>
+
+        <div class="footer">
+            <button class="subbtn" id="btn-reset" type="button" aria-label="メーターをリセット">メーターをリセット</button>
+        </div>
+    </main>
+
+    <script>
+        // 絵文字と表示名の対応
+        const EMOJI = {
+            rock: { emoji: "✊", jp: "グー" },
+            scissors: { emoji: "✌️", jp: "チョキ" },
+            paper: { emoji: "✋", jp: "パー" }
+        };
+
+        // 勝敗判定: グー>チョキ, チョキ>パー, パー>グー
+        function judge(user, cpu) {
+            if (user === cpu) return "tie";
+            if (
+                (user === "rock" && cpu === "scissors") ||
+                (user === "scissors" && cpu === "paper") ||
+                (user === "paper" && cpu === "rock")
+            ) return "win";
+            return "lose";
+        }
+
+        // 連勝カウンタ
+        let streak = 0;
+
+        // メーター更新（視覚的には最大10でフル表示にする）
+        function updateMeter() {
+            $("#streak").text(streak);
+            const capped = Math.min(streak, 10);
+            const width = (capped / 10) * 100;
+            $("#fill").css("width", width + "%");
+        }
+
+        function handEmoji(name) { return EMOJI[name]?.emoji || "—"; }
+        function handJP(name) { return EMOJI[name]?.jp || "—"; }
+
+        function setResultBanner(state, text) {
+            const $r = $("#result");
+            $r.removeClass("win lose tie").addClass(state).text(text);
+
+            // ちょっとしたフィードバック演出
+            if (state === "win") {
+                $r.addClass("pop");
+                setTimeout(() => $r.removeClass("pop"), 300);
+            } else if (state === "lose") {
+                $r.addClass("shake");
+                setTimeout(() => $r.removeClass("shake"), 450);
+            } else {
+                $r.addClass("pop");
+                setTimeout(() => $r.removeClass("pop"), 300);
+            }
+        }
+
+        function play(user) {
+            // CPU手をランダム
+            const hands = ["rock", "scissors", "paper"];
+            const cpu = hands[Math.floor(Math.random() * hands.length)];
+
+            // 表示更新
+            $("#youHand").text(handEmoji(user)).addClass("pop");
+            $("#cpuHand").text(handEmoji(cpu)).addClass("pop");
+            setTimeout(() => { $("#youHand, #cpuHand").removeClass("pop"); }, 300);
+
+            // 勝敗
+            const res = judge(user, cpu);
+            if (res === "win") {
+                streak += 1;
+                setResultBanner("win", `結果：あなたの勝ち！（${handJP(user)} は ${handJP(cpu)} に勝ち）`);
+                $(".bar").addClass("pulse");
+                setTimeout(() => $(".bar").removeClass("pulse"), 650);
+            } else if (res === "lose") {
+                streak = 0;
+                setResultBanner("lose", `結果：あなたの負け…（${handJP(user)} は ${handJP(cpu)} に負け）`);
+            } else {
+                setResultBanner("tie", `結果：あいこ（${handJP(user)} と ${handJP(cpu)}）`);
+            }
+            updateMeter();
+        }
+
+        $(function () {
+            // 初期化
+            updateMeter();
+
+            // ボタンクリック
+            $(".choice").on("click", function () {
+                const hand = $(this).data("hand");
+                play(hand);
+            });
+
+            // リセットボタン（仕様には必須ではないが便利）
+            $("#btn-reset").on("click", function () {
+                streak = 0;
+                updateMeter();
+                setResultBanner("tie", "結果：—（メーターをリセットしました）");
+                $("#youHand, #cpuHand").text("—");
+            });
+
+            // キーボード操作（r=グー, s=チョキ, p=パー）
+            $(document).on("keydown", function (e) {
+                const k = e.key.toLowerCase();
+                if (k === "r") play("rock");
+                if (k === "s") play("scissors");
+                if (k === "p") play("paper");
+            });
+        });
+    </script>
+</body>
+
+</html>
